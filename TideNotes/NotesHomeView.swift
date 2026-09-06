@@ -3,115 +3,148 @@ import SwiftData
 
 struct NotesHomeView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Note.updatedAt, order: .reverse) private var allNotes: [Note]
-    @State private var search = ""
-    @State private var selectedNote: Note?
+    @Query(sort: \NoteFolder.createdAt) private var folders: [NoteFolder]
+    @Query(sort: \Note.updatedAt, order: .reverse) private var notes: [Note]
 
-    private var notes: [Note] {
-        allNotes
-            .filter { !$0.isDeleted }
-            .filter {
-                search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.body.localizedCaseInsensitiveContains(search)
-            }
-            .sorted {
-                if $0.isPinned != $1.isPinned { return $0.isPinned }
-                return $0.updatedAt > $1.updatedAt
-            }
-    }
+    @State private var showingNewFolder = false
+    @State private var folderName = ""
+
+    private var activeNotes: [Note] { notes.filter { !$0.isDeleted } }
+    private var pinnedCount: Int { activeNotes.filter(\.isPinned).count }
+    private var deletedCount: Int { notes.filter(\.isDeleted).count }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if notes.isEmpty {
-                    ContentUnavailableView(
-                        search.isEmpty ? "No Notes" : "No Results",
-                        systemImage: search.isEmpty ? "note.text" : "magnifyingglass",
-                        description: Text(search.isEmpty ? "Tap the compose button to make your first TideNote." : "Try another search.")
-                    )
-                } else {
-                    List {
-                        ForEach(notes) { note in
+            List {
+                Section {
+                    NavigationLink {
+                        NoteListView(mode: .all)
+                    } label: {
+                        FolderRow(icon: "note.text", title: "All Notes", count: activeNotes.count)
+                    }
+
+                    NavigationLink {
+                        NoteListView(mode: .pinned)
+                    } label: {
+                        FolderRow(icon: "pin.fill", title: "Pinned", count: pinnedCount)
+                    }
+
+                    NavigationLink {
+                        NoteListView(mode: .recentlyDeleted)
+                    } label: {
+                        FolderRow(icon: "trash", title: "Recently Deleted", count: deletedCount)
+                    }
+                }
+
+                Section("Folders") {
+                    if folders.isEmpty {
+                        ContentUnavailableView(
+                            "No Folders",
+                            systemImage: "folder",
+                            description: Text("Create a folder to organise your notes.")
+                        )
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(folders) { folder in
                             NavigationLink {
-                                NoteEditorView(note: note)
+                                NoteListView(mode: .folder(folder))
                             } label: {
-                                NoteRow(note: note)
-                            }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button {
-                                    note.isPinned.toggle()
-                                    note.updatedAt = .now
-                                } label: {
-                                    Label(note.isPinned ? "Unpin" : "Pin", systemImage: note.isPinned ? "pin.slash" : "pin")
-                                }
-                                .tint(.orange)
+                                FolderRow(
+                                    icon: "folder.fill",
+                                    title: folder.name,
+                                    count: activeNotes.filter { $0.folder?.id == folder.id }.count
+                                )
                             }
                             .swipeActions {
                                 Button(role: .destructive) {
-                                    note.isDeleted = true
-                                    note.updatedAt = .now
+                                    delete(folder)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
                     }
-                    .listStyle(.plain)
                 }
             }
             .navigationTitle("TideNotes")
-            .searchable(text: $search, prompt: "Search notes")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
-                        MoreView()
+                        SettingsView()
                     } label: {
-                        Image(systemName: "folder")
+                        Image(systemName: "gearshape")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: newNote) {
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showingNewFolder = true
+                    } label: {
+                        Image(systemName: "folder.badge.plus")
+                    }
+                    .accessibilityLabel("New folder")
+
+                    NavigationLink {
+                        NoteEditorView(note: makeNote())
+                    } label: {
                         Image(systemName: "square.and.pencil")
                     }
                     .accessibilityLabel("New note")
                 }
             }
-            .navigationDestination(item: $selectedNote) { note in
-                NoteEditorView(note: note)
+            .alert("New Folder", isPresented: $showingNewFolder) {
+                TextField("Folder name", text: $folderName)
+                Button("Cancel", role: .cancel) {
+                    folderName = ""
+                }
+                Button("Create") {
+                    createFolder()
+                }
+            } message: {
+                Text("Give this folder a name.")
             }
         }
     }
 
-    private func newNote() {
+    private func makeNote() -> Note {
         let note = Note()
         context.insert(note)
-        selectedNote = note
+        return note
+    }
+
+    private func createFolder() {
+        let name = folderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        context.insert(NoteFolder(name: name))
+        try? context.save()
+        folderName = ""
+    }
+
+    private func delete(_ folder: NoteFolder) {
+        for note in notes where note.folder?.id == folder.id {
+            note.folder = nil
+            note.touch()
+        }
+        context.delete(folder)
+        try? context.save()
     }
 }
 
-private struct NoteRow: View {
-    let note: Note
+private struct FolderRow: View {
+    let icon: String
+    let title: String
+    let count: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                if note.isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-                Text(note.displayTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-            }
-            HStack(spacing: 8) {
-                Text(note.updatedAt, style: .date)
-                    .foregroundStyle(.secondary)
-                Text(note.preview)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .font(.subheadline)
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.tint)
+                .frame(width: 24)
+            Text(title)
+            Spacer()
+            Text("\(count)")
+                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 4)
     }
 }
