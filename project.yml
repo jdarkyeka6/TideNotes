@@ -18,8 +18,10 @@ targets:
         PRODUCT_NAME: TideNotes
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: TideNotes
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Use Face ID to unlock locked TideNotes."
         MARKETING_VERSION: 0.1
         CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
     scheme:
       testTargets: []
