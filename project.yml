@@ -1,6 +1,6 @@
 name: TideNotes
 options:
-  bundleIdPrefix: lol.tide
+  bundleIdPrefix: com.jdarkyeka6
   deploymentTarget:
     iOS: "18.0"
 settings:
@@ -14,7 +14,7 @@ targets:
       - TideNotes
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: lol.tide.notes
+        PRODUCT_BUNDLE_IDENTIFIER: com.jdarkyeka6.TideNotes
         PRODUCT_NAME: TideNotes
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: TideNotes
@@ -23,5 +23,6 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       testTargets: []
