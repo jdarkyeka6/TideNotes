@@ -1,51 +1,59 @@
 import SwiftUI
 import SwiftData
 
-struct MoreView: View {
+struct SettingsView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Note.updatedAt, order: .reverse) private var notes: [Note]
+    @Query private var notes: [Note]
+    @Query private var folders: [NoteFolder]
 
-    private var deleted: [Note] { notes.filter(\.isDeleted) }
+    @State private var confirmEmptyTrash = false
+
+    private var activeNotes: [Note] { notes.filter { !$0.isDeleted } }
+    private var deletedNotes: [Note] { notes.filter(\.isDeleted) }
 
     var body: some View {
         List {
-            Section("TideNotes") {
-                Label("On My iPhone", systemImage: "iphone")
-                Label("Offline First", systemImage: "wifi.slash")
+            Section("Library") {
+                LabeledContent("Notes", value: "\(activeNotes.count)")
+                LabeledContent("Folders", value: "\(folders.count)")
+                LabeledContent("Deleted", value: "\(deletedNotes.count)")
             }
 
-            Section("Recently Deleted") {
-                if deleted.isEmpty {
-                    Text("No Recently Deleted notes")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(deleted) { note in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(note.displayTitle)
-                                    .font(.headline)
-                                Text(note.preview)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                            Menu {
-                                Button("Recover") {
-                                    note.isDeleted = false
-                                    note.updatedAt = .now
-                                }
-                                Button("Delete Forever", role: .destructive) {
-                                    context.delete(note)
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                            }
-                        }
-                    }
+            Section("Privacy") {
+                Label("Notes are stored on this iPhone", systemImage: "iphone.and.arrow.forward")
+                Label("Locked notes use device authentication", systemImage: "faceid")
+                Label("No TideNotes account required", systemImage: "person.crop.circle.badge.checkmark")
+            }
+
+            Section("Storage") {
+                Button("Empty Recently Deleted", role: .destructive) {
+                    confirmEmptyTrash = true
                 }
+                .disabled(deletedNotes.isEmpty)
+            }
+
+            Section("About") {
+                LabeledContent("App", value: "TideNotes")
+                LabeledContent("Version", value: "0.1 (1)")
+                Text("A fast, offline-first notes app built for the Tide ecosystem.")
+                    .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("Folders")
+        .navigationTitle("Settings")
+        .alert("Empty Recently Deleted?", isPresented: $confirmEmptyTrash) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete Forever", role: .destructive) {
+                emptyTrash()
+            }
+        } message: {
+            Text("This permanently deletes every note in Recently Deleted.")
+        }
+    }
+
+    private func emptyTrash() {
+        for note in deletedNotes {
+            context.delete(note)
+        }
+        try? context.save()
     }
 }
