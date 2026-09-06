@@ -8,6 +8,11 @@ struct NotesHomeView: View {
 
     @State private var showingNewFolder = false
     @State private var folderName = ""
+    @State private var folderToRename: NoteFolder?
+    @State private var renameText = ""
+    @State private var showingRenameFolder = false
+    @State private var createdNote: Note?
+    @State private var openingCreatedNote = false
 
     private var activeNotes: [Note] { notes.filter { !$0.isDeleted } }
     private var pinnedCount: Int { activeNotes.filter(\.isPinned).count }
@@ -38,13 +43,8 @@ struct NotesHomeView: View {
 
                 Section("Folders") {
                     if folders.isEmpty {
-                        ContentUnavailableView(
-                            "No Folders",
-                            systemImage: "folder",
-                            description: Text("Create a folder to organise your notes.")
-                        )
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
+                        Text("No folders yet")
+                            .foregroundStyle(.secondary)
                     } else {
                         ForEach(folders) { folder in
                             NavigationLink {
@@ -56,12 +56,36 @@ struct NotesHomeView: View {
                                     count: activeNotes.filter { $0.folder?.id == folder.id }.count
                                 )
                             }
+                            .contextMenu {
+                                Button {
+                                    folderToRename = folder
+                                    renameText = folder.name
+                                    showingRenameFolder = true
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    delete(folder)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                             .swipeActions {
                                 Button(role: .destructive) {
                                     delete(folder)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+
+                                Button {
+                                    folderToRename = folder
+                                    renameText = folder.name
+                                    showingRenameFolder = true
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                .tint(.blue)
                             }
                         }
                     }
@@ -85,12 +109,17 @@ struct NotesHomeView: View {
                     }
                     .accessibilityLabel("New folder")
 
-                    NavigationLink {
-                        NoteEditorView(note: makeNote())
+                    Button {
+                        createAndOpenNote()
                     } label: {
                         Image(systemName: "square.and.pencil")
                     }
                     .accessibilityLabel("New note")
+                }
+            }
+            .navigationDestination(isPresented: $openingCreatedNote) {
+                if let createdNote {
+                    NoteEditorView(note: createdNote)
                 }
             }
             .alert("New Folder", isPresented: $showingNewFolder) {
@@ -104,13 +133,25 @@ struct NotesHomeView: View {
             } message: {
                 Text("Give this folder a name.")
             }
+            .alert("Rename Folder", isPresented: $showingRenameFolder) {
+                TextField("Folder name", text: $renameText)
+                Button("Cancel", role: .cancel) {
+                    folderToRename = nil
+                    renameText = ""
+                }
+                Button("Save") {
+                    renameFolder()
+                }
+            }
         }
     }
 
-    private func makeNote() -> Note {
+    private func createAndOpenNote() {
         let note = Note()
         context.insert(note)
-        return note
+        try? context.save()
+        createdNote = note
+        openingCreatedNote = true
     }
 
     private func createFolder() {
@@ -119,6 +160,15 @@ struct NotesHomeView: View {
         context.insert(NoteFolder(name: name))
         try? context.save()
         folderName = ""
+    }
+
+    private func renameFolder() {
+        let name = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let folderToRename else { return }
+        folderToRename.name = name
+        try? context.save()
+        self.folderToRename = nil
+        renameText = ""
     }
 
     private func delete(_ folder: NoteFolder) {
