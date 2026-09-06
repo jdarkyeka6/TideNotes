@@ -10,7 +10,8 @@ struct NoteEditorView: View {
 
     @Bindable var note: Note
 
-    @FocusState private var bodyFocused: Bool
+    @State private var bodyFocused = false
+    @State private var formatCommand: RichTextCommand?
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showingDrawing = false
     @State private var unlocked = false
@@ -119,12 +120,14 @@ struct NoteEditorView: View {
                         }
                     }
 
-                    TextEditor(text: $note.body)
-                        .font(.body)
-                        .frame(minHeight: 360)
-                        .scrollContentBackground(.hidden)
-                        .focused($bodyFocused)
-                        .onChange(of: note.body) { _, _ in save() }
+                    RichTextEditor(
+                        text: $note.body,
+                        rtfData: $note.richTextData,
+                        command: $formatCommand,
+                        isFocused: $bodyFocused,
+                        onChange: save
+                    )
+                    .frame(minHeight: 360, idealHeight: 440, maxHeight: 560)
 
                     if !note.tags.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -212,7 +215,7 @@ struct NoteEditorView: View {
 
             ToolbarItemGroup(placement: .bottomBar) {
                 Button {
-                    insert("☐ ")
+                    send(.checklist)
                 } label: {
                     Image(systemName: "checklist")
                 }
@@ -220,12 +223,16 @@ struct NoteEditorView: View {
                 Spacer()
 
                 Menu {
-                    Button("Heading") { insert("\n# Heading\n") }
-                    Button("Bold") { insert("**bold**") }
-                    Button("Italic") { insert("_italic_") }
-                    Button("Bullet") { insert("\n• ") }
-                    Button("Numbered List") { insert("\n1. ") }
-                    Button("Quote") { insert("\n> ") }
+                    Button("Heading") { send(.heading) }
+                    Button("Body") { send(.body) }
+                    Divider()
+                    Button("Bold") { send(.bold) }
+                    Button("Italic") { send(.italic) }
+                    Divider()
+                    Button("Bullet List") { send(.bullet) }
+                    Button("Numbered List") { send(.numbered) }
+                    Button("Checklist") { send(.checklist) }
+                    Button("Quote") { send(.quote) }
                 } label: {
                     Image(systemName: "textformat")
                 }
@@ -310,12 +317,8 @@ struct NoteEditorView: View {
             .joined(separator: "\n\n")
     }
 
-    private func insert(_ text: String) {
-        if !note.body.isEmpty && text.hasPrefix("\n") == false && !note.body.hasSuffix("\n") {
-            note.body += "\n"
-        }
-        note.body += text
-        save()
+    private func send(_ kind: RichTextCommand.Kind) {
+        formatCommand = RichTextCommand(kind: kind)
         bodyFocused = true
     }
 
@@ -325,13 +328,8 @@ struct NoteEditorView: View {
     }
 
     private func toggleLock() {
-        if note.isLocked {
-            note.isLocked = false
-            unlocked = true
-        } else {
-            note.isLocked = true
-            unlocked = true
-        }
+        note.isLocked.toggle()
+        unlocked = true
         save()
     }
 
