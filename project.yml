@@ -1,0 +1,25 @@
+name: TideNotes
+options:
+  bundleIdPrefix: lol.tide
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+targets:
+  TideNotes:
+    type: application
+    platform: iOS
+    sources:
+      - TideNotes
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: lol.tide.notes
+        PRODUCT_NAME: TideNotes
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: TideNotes
+        MARKETING_VERSION: 0.1
+        CURRENT_PROJECT_VERSION: 1
+        CODE_SIGN_STYLE: Automatic
+    scheme:
+      testTargets: []
