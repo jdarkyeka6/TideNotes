@@ -27,6 +27,7 @@ final class Note {
     var tagsText: String
     var isLocked: Bool
 
+    @Attribute(.externalStorage) var richTextData: Data?
     @Attribute(.externalStorage) var photoData: Data?
     @Attribute(.externalStorage) var drawingData: Data?
 
@@ -45,6 +46,7 @@ final class Note {
         self.folder = folder
         self.tagsText = ""
         self.isLocked = false
+        self.richTextData = nil
         self.photoData = nil
         self.drawingData = nil
     }
