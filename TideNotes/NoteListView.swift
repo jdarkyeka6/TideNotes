@@ -4,6 +4,8 @@ import SwiftData
 enum NoteListMode {
     case all
     case pinned
+    case today
+    case attachments
     case recentlyDeleted
     case folder(NoteFolder)
 
@@ -11,10 +13,31 @@ enum NoteListMode {
         switch self {
         case .all: return "All Notes"
         case .pinned: return "Pinned"
+        case .today: return "Today"
+        case .attachments: return "Attachments"
         case .recentlyDeleted: return "Recently Deleted"
         case .folder(let folder): return folder.name
         }
     }
+
+    var icon: String {
+        switch self {
+        case .all: return "note.text"
+        case .pinned: return "pin.fill"
+        case .today: return "clock.fill"
+        case .attachments: return "paperclip"
+        case .recentlyDeleted: return "trash"
+        case .folder: return "folder.fill"
+        }
+    }
+}
+
+private enum NoteSort: String, CaseIterable, Identifiable {
+    case updated = "Last Edited"
+    case created = "Date Created"
+    case title = "Title"
+
+    var id: String { rawValue }
 }
 
 struct NoteListView: View {
@@ -24,6 +47,7 @@ struct NoteListView: View {
     let mode: NoteListMode
 
     @State private var search = ""
+    @State private var sort: NoteSort = .updated
     @State private var createdNote: Note?
     @State private var openingCreatedNote = false
 
@@ -34,6 +58,10 @@ struct NoteListView: View {
                 return !note.isDeleted
             case .pinned:
                 return !note.isDeleted && note.isPinned
+            case .today:
+                return !note.isDeleted && Calendar.current.isDateInToday(note.updatedAt)
+            case .attachments:
+                return !note.isDeleted && (note.photoData != nil || note.drawingData != nil)
             case .recentlyDeleted:
                 return note.isDeleted
             case .folder(let folder):
@@ -41,18 +69,27 @@ struct NoteListView: View {
             }
         }
 
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         let searched = scoped.filter { note in
-            guard !search.isEmpty else { return true }
-            return note.title.localizedCaseInsensitiveContains(search)
-                || note.body.localizedCaseInsensitiveContains(search)
-                || note.tagsText.localizedCaseInsensitiveContains(search)
+            guard !query.isEmpty else { return true }
+            return note.title.localizedCaseInsensitiveContains(query)
+                || note.body.localizedCaseInsensitiveContains(query)
+                || note.tagsText.localizedCaseInsensitiveContains(query)
         }
 
-        return searched.sorted {
-            if $0.isPinned != $1.isPinned && !isRecentlyDeleted {
-                return $0.isPinned
+        return searched.sorted { lhs, rhs in
+            if !isRecentlyDeleted && lhs.isPinned != rhs.isPinned {
+                return lhs.isPinned
             }
-            return $0.updatedAt > $1.updatedAt
+
+            switch sort {
+            case .updated:
+                return lhs.updatedAt > rhs.updatedAt
+            case .created:
+                return lhs.createdAt > rhs.createdAt
+            case .title:
+                return lhs.displayTitle.localizedCaseInsensitiveCompare(rhs.displayTitle) == .orderedAscending
+            }
         }
     }
 
@@ -64,11 +101,7 @@ struct NoteListView: View {
     var body: some View {
         Group {
             if notes.isEmpty {
-                ContentUnavailableView(
-                    search.isEmpty ? emptyTitle : "No Results",
-                    systemImage: search.isEmpty ? emptyIcon : "magnifyingglass",
-                    description: Text(search.isEmpty ? emptyMessage : "Try a different search.")
-                )
+                emptyState
             } else {
                 List {
                     ForEach(notes) { note in
@@ -90,7 +123,10 @@ struct NoteListView: View {
                                     note.isPinned.toggle()
                                     save(note)
                                 } label: {
-                                    Label(note.isPinned ? "Unpin" : "Pin", systemImage: note.isPinned ? "pin.slash" : "pin")
+                                    Label(
+                                        note.isPinned ? "Unpin" : "Pin",
+                                        systemImage: note.isPinned ? "pin.slash" : "pin"
+                                    )
                                 }
                                 .tint(.orange)
                             }
@@ -118,13 +154,26 @@ struct NoteListView: View {
             }
         }
         .navigationTitle(mode.title)
-        .searchable(text: $search, prompt: "Search notes")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $search, prompt: "Search \(mode.title.lowercased())")
         .toolbar {
-            if !isRecentlyDeleted {
-                ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Sort", selection: $sort) {
+                        ForEach(NoteSort.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                }
+                .accessibilityLabel("Sort notes")
+
+                if !isRecentlyDeleted {
                     Button {
                         let note = Note(folder: folderForNewNote)
                         context.insert(note)
+                        try? context.save()
                         createdNote = note
                         openingCreatedNote = true
                     } label: {
@@ -141,6 +190,25 @@ struct NoteListView: View {
         }
     }
 
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label(search.isEmpty ? emptyTitle : "No Results", systemImage: search.isEmpty ? mode.icon : "magnifyingglass")
+        } description: {
+            Text(search.isEmpty ? emptyMessage : "Try a different search.")
+        } actions: {
+            if search.isEmpty && !isRecentlyDeleted {
+                Button("New Note") {
+                    let note = Note(folder: folderForNewNote)
+                    context.insert(note)
+                    try? context.save()
+                    createdNote = note
+                    openingCreatedNote = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
     private var folderForNewNote: NoteFolder? {
         if case .folder(let folder) = mode { return folder }
         return nil
@@ -150,23 +218,24 @@ struct NoteListView: View {
         switch mode {
         case .recentlyDeleted: return "Nothing Deleted"
         case .pinned: return "No Pinned Notes"
+        case .today: return "Nothing Yet Today"
+        case .attachments: return "No Attachments"
         default: return "No Notes"
-        }
-    }
-
-    private var emptyIcon: String {
-        switch mode {
-        case .recentlyDeleted: return "trash"
-        case .pinned: return "pin"
-        default: return "note.text"
         }
     }
 
     private var emptyMessage: String {
         switch mode {
-        case .recentlyDeleted: return "Deleted notes will appear here."
-        case .pinned: return "Pin important notes so they stay easy to find."
-        default: return "Tap the compose button to create a note."
+        case .recentlyDeleted:
+            return "Deleted notes will appear here."
+        case .pinned:
+            return "Pin important notes so they stay easy to find."
+        case .today:
+            return "Notes you edit today will appear here."
+        case .attachments:
+            return "Notes with photos or drawings will appear here."
+        default:
+            return "Create a note and start writing."
         }
     }
 
@@ -185,38 +254,47 @@ struct NoteRow: View {
     let note: Note
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                if note.isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-                if note.isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 7) {
                 Text(note.displayTitle)
                     .font(.headline)
                     .lineLimit(1)
+
+                if note.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+
+                if note.isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
             }
+
+            Text(note.isLocked ? "Locked Note" : note.preview)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
 
             HStack(spacing: 8) {
-                Text(note.updatedAt, style: .date)
-                Text(note.isLocked ? "Locked Note" : note.preview)
-                    .lineLimit(1)
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+                Text(note.updatedAt, style: .relative)
 
-            if !note.tags.isEmpty && !note.isLocked {
-                Text(note.tags.map { "#\($0)" }.joined(separator: "  "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if note.photoData != nil || note.drawingData != nil {
+                    Label("Attachment", systemImage: "paperclip")
+                }
+
+                if !note.tags.isEmpty && !note.isLocked {
+                    Text(note.tags.prefix(2).map { "#\($0)" }.joined(separator: " "))
+                        .lineLimit(1)
+                }
             }
+            .font(.caption)
+            .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
