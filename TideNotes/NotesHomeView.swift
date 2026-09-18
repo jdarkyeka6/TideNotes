@@ -198,7 +198,7 @@ struct NotesHomeView: View {
                     }
 
                     VStack(spacing: 0) {
-                        ForEach(Array(activeNotes.prefix(5).enumerated()), id: \.element.id) { index, note in
+                        ForEach(Array(activeNotes.prefix(5))) { note in
                             NavigationLink {
                                 NoteEditorView(note: note)
                             } label: {
@@ -206,10 +206,8 @@ struct NotesHomeView: View {
                             }
                             .buttonStyle(.plain)
 
-                            if index < min(activeNotes.count, 5) - 1 {
-                                Divider()
-                                    .padding(.leading, 50)
-                            }
+                            Divider()
+                                .padding(.leading, 50)
                         }
                     }
                     .background(
@@ -344,7 +342,7 @@ struct NotesHomeView: View {
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 0) {
-                    ForEach(Array(searchResults.enumerated()), id: \.element.id) { index, note in
+                    ForEach(searchResults) { note in
                         NavigationLink {
                             NoteEditorView(note: note)
                         } label: {
@@ -352,10 +350,8 @@ struct NotesHomeView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if index < searchResults.count - 1 {
-                            Divider()
-                                .padding(.leading, 50)
-                        }
+                        Divider()
+                            .padding(.leading, 50)
                     }
                 }
                 .background(
