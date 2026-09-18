@@ -23,7 +23,7 @@ struct SettingsView: View {
                 HStack(spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.red.gradient)
+                            .fill(Color.blue.gradient)
 
                         Image(systemName: "note.text")
                             .font(.title2.bold())

@@ -30,17 +30,17 @@ def rounded_rect(x: int, y: int, left: int, top: int, right: int, bottom: int, r
 
 
 def pixel(x: int, y: int) -> tuple[int, int, int]:
-    # TideNotes red gradient.
+    # Tide gradient.
     t = y / (SIZE - 1)
-    r = int(92 + 76 * t)
-    g = int(8 + 10 * t)
-    b = int(18 + 14 * t)
+    r = int(5 + 7 * t)
+    g = int(35 + 78 * t)
+    b = int(82 + 104 * t)
 
-    # Soft red glow behind the note.
+    # Soft glow behind the note.
     glow = max(0.0, 1.0 - math.hypot(x - 512, y - 470) / 520)
-    r = min(255, int(r + 36 * glow))
-    g = min(255, int(g + 8 * glow))
-    b = min(255, int(b + 10 * glow))
+    r = min(255, int(r + 8 * glow))
+    g = min(255, int(g + 26 * glow))
+    b = min(255, int(b + 30 * glow))
 
     # Paper card.
     if rounded_rect(x, y, 245, 180, 779, 810, 74):
@@ -48,18 +48,18 @@ def pixel(x: int, y: int) -> tuple[int, int, int]:
 
         # Folded upper-right corner.
         if x > 650 and y < 315 and (x + y) > 945:
-            return (245, 214, 218)
+            return (205, 226, 245)
 
         # Note lines.
         if 340 <= x <= 675:
             if 368 <= y <= 397 or 478 <= y <= 507 or 588 <= y <= 617:
-                return (180, 24, 42)
+                return (28, 111, 176)
 
         # Small wave mark near the bottom.
         if 350 <= x <= 674 and 675 <= y <= 725:
             wave_y = 700 + 18 * math.sin((x - 350) / 42)
             if abs(y - wave_y) <= 8:
-                return (220, 38, 55)
+                return (20, 142, 196)
 
         return paper
 
