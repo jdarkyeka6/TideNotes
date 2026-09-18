@@ -116,7 +116,7 @@ struct NotesHomeView: View {
                 }
             }
         }
-        .tint(.blue)
+        .tint(.red)
     }
 
     private var dashboard: some View {
@@ -368,7 +368,7 @@ struct NotesHomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             Image(systemName: "wave.3.right.circle.fill")
                 .font(.system(size: 38))
-                .foregroundStyle(.blue)
+                .foregroundStyle(.red)
 
             Text("Your notes, without the noise.")
                 .font(.title2.bold())
@@ -440,7 +440,7 @@ private struct SmartCard: View {
             HStack {
                 Image(systemName: icon)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.red)
 
                 Spacer()
 
@@ -476,7 +476,7 @@ private struct FolderCard: View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "folder.fill")
                 .font(.title2)
-                .foregroundStyle(.blue)
+                .foregroundStyle(.red)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(name)
@@ -505,11 +505,11 @@ private struct RecentNoteRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.blue.opacity(0.10))
+                    .fill(Color.red.opacity(0.10))
 
                 Image(systemName: note.isLocked ? "lock.fill" : "note.text")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.red)
             }
             .frame(width: 38, height: 38)
 
